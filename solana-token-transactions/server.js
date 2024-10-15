@@ -22,37 +22,51 @@ app.get('/transactions', async (req, res) => {
   try {
     const data = await fs.readFile('transactions.json', 'utf8');
     const transactions = JSON.parse(data);
-    const processedTransactions = transactions.map(processTransaction).filter(Boolean);
+    console.log('Raw transactions:', transactions.slice(0, 2)); // Log first two raw transactions
+
+    const processedTransactions = transactions
+      .map(processTransaction)
+      .filter(tx => tx !== null);
+    console.log('Processed transactions:', processedTransactions.slice(0, 2)); // Log first two processed transactions
+
     res.json(processedTransactions);
   } catch (error) {
+    console.error('Error reading transactions:', error);
     res.status(500).json({ error: 'Error reading transactions' });
   }
 });
 
 function processTransaction(tx) {
-  const transferInstruction = tx.transaction.message.instructions.find(instr => 
-    instr.parsed && instr.parsed.type === 'transfer'
+  if (!tx || !tx.transaction || !tx.transaction.message || !tx.transaction.message.accountKeys) {
+    return null;
+  }
+
+  const tokenProgramIndex = tx.transaction.message.accountKeys.findIndex(
+    key => key.pubkey === 'TokenkegQfeZyiN89JlPAZqF7ydjh5tUb9kmj30Urisg'
+  );
+
+  if (tokenProgramIndex === -1) return null;
+
+  const transferInstruction = tx.transaction.message.instructions.find(
+    instr => instr.programIdIndex === tokenProgramIndex
   );
 
   if (!transferInstruction) return null;
 
-  const { info } = transferInstruction.parsed;
-  const tokenMint = tx.transaction.message.accountKeys.find(key => 
-    key.pubkey === OPUS_MINT || key.pubkey === SOL_MINT
-  );
-
-  if (!tokenMint) return null;
-
-  const isOpus = tokenMint.pubkey === OPUS_MINT;
-  const decimals = isOpus ? 6 : 9; // OPUS has 6 decimals, SOL has 9
+  const { accounts } = transferInstruction;
+  
+  // Extract amount from instruction data
+  const amount = transferInstruction.data 
+    ? parseInt(Buffer.from(transferInstruction.data, 'base64').slice(4).toString('hex'), 16) / 1e6 
+    : 'Unknown';
 
   return {
     signature: tx.transaction.signatures[0],
-    blockTime: tx.blockTime,
-    from: info.source,
-    to: info.destination,
-    amount: parseFloat(info.amount) / Math.pow(10, decimals),
-    token: isOpus ? 'OPUS' : 'SOL'
+    blockTime: new Date(tx.blockTime * 1000).toISOString(),
+    from: tx.transaction.message.accountKeys[accounts[0]].pubkey,
+    to: tx.transaction.message.accountKeys[accounts[1]].pubkey,
+    amount: amount,
+    token: 'OPUS'
   };
 }
 

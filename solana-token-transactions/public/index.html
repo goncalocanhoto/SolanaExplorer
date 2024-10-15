@@ -4,67 +4,185 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Solana Token Transactions</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        .tooltip { position: relative; display: inline-block; }
-        .tooltip .tooltiptext { visibility: hidden; width: 140px; background-color: #555; color: #fff; text-align: center; border-radius: 6px; padding: 5px; position: absolute; z-index: 1; bottom: 150%; left: 50%; margin-left: -75px; opacity: 0; transition: opacity 0.3s; }
-        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7fa;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h1, h2 {
+            color: #1a202c;
+            text-align: center;
+        }
+        .token-info {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .token-info a {
+            color: #3182ce;
+            text-decoration: none;
+        }
+        .token-info a:hover {
+            text-decoration: underline;
+        }
+        #runScript {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #3182ce;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #runScript:hover {
+            background-color: #2c5282;
+        }
+        #log {
+            background-color: #edf2f7;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background-color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+        }
+        th {
+            background-color: #f1f5f9;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        .amount {
+            font-weight: 500;
+            color: #2563eb;
+        }
     </style>
 </head>
 <body>
     <h1>Solana Token Transactions</h1>
+    <div class="token-info">
+        <h2>OPUS Token</h2>
+        <p>Address: <a href="https://solscan.io/token/9JhFqCA21MoAXs2PTaeqNQp2XngPn1PgYr2rsEVCpump" target="_blank">9JhFqCA21MoAXs2PTaeqNQp2XngPn1PgYr2rsEVCpump</a></p>
+    </div>
+    <button id="runScript">Run Script</button>
+    <div id="log"></div>
     <div id="transactions"></div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script>
+        const socket = io();
+        const runButton = document.getElementById('runScript');
+        const logDiv = document.getElementById('log');
+
+        runButton.addEventListener('click', () => {
+            runButton.disabled = true;
+            logDiv.innerHTML = 'Running script...\n';
+            socket.emit('runScript');
+        });
+
+        socket.on('log', (message) => {
+            logDiv.innerHTML += message + '\n';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        });
+
+        socket.on('scriptFinished', () => {
+            runButton.disabled = false;
+            fetchTransactions();
+        });
+
         function fetchTransactions() {
             fetch('/transactions')
                 .then(response => response.json())
                 .then(transactions => {
+                    console.log('Fetched transactions:', transactions.slice(0, 2));
                     displayTransactions(transactions);
                 })
-                .catch(error => console.error('Error:', error));
+                .catch(error => console.error('Error fetching transactions:', error));
         }
 
         function displayTransactions(transactions) {
+            console.log('Displaying transactions:', transactions.length);
+            const transactionsDiv = document.getElementById('transactions');
+            
+            if (transactions.length === 0) {
+                transactionsDiv.innerHTML = '<p>No transactions found.</p>';
+                return;
+            }
+
             const table = document.createElement('table');
             table.innerHTML = `
                 <thead>
                     <tr>
                         <th>Signature</th>
-                        <th>Time</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th>Amount</th>
-                        <th>Token</th>
+                        <th>Block Time</th>
+                        <th>Status</th>
+                        <th>Error</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${transactions.map(tx => `
                         <tr>
-                            <td class="tooltip">${tx.signature.slice(0, 10)}...
-                                <span class="tooltiptext">${tx.signature}</span>
+                            <td class="tooltip">${tx.transaction.signatures[0].slice(0, 10)}...
+                                <span class="tooltiptext">${tx.transaction.signatures[0]}</span>
                             </td>
-                            <td>${new Date(tx.blockTime).toLocaleString()}</td>
-                            <td class="tooltip">${tx.from.slice(0, 10)}...
-                                <span class="tooltiptext">${tx.from}</span>
-                            </td>
-                            <td class="tooltip">${tx.to.slice(0, 10)}...
-                                <span class="tooltiptext">${tx.to}</span>
-                            </td>
-                            <td>${tx.amount}</td>
-                            <td>${tx.token}</td>
+                            <td>${new Date(tx.blockTime * 1000).toLocaleString()}</td>
+                            <td>${tx.meta.err ? 'Failed' : 'Success'}</td>
+                            <td>${tx.meta.err ? JSON.stringify(tx.meta.err) : 'N/A'}</td>
                         </tr>
                     `).join('')}
                 </tbody>
             `;
-            document.getElementById('transactions').innerHTML = '';
-            document.getElementById('transactions').appendChild(table);
+            transactionsDiv.innerHTML = '';
+            transactionsDiv.appendChild(table);
         }
 
+        // Fetch transactions on page load
         fetchTransactions();
     </script>
 </body>

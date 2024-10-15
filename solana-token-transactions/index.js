@@ -15,6 +15,7 @@ async function sleep(ms) {
 
 async function getOldestTransactions() {
   try {
+    console.log("Fetching signatures for address:", TOKEN_MINT_ADDRESS);
     const response = await axios.post(ALCHEMY_URL, {
       jsonrpc: "2.0",
       id: 1,
@@ -26,15 +27,15 @@ async function getOldestTransactions() {
         }
       ]
     });
-    console.log('API Response:', JSON.stringify(response.data, null, 2));
+    console.log("API Response:", JSON.stringify(response.data, null, 2));
     if (response.data && response.data.result) {
       return response.data.result;
     } else {
-      console.error('Unexpected API response structure:', response.data);
+      console.error("Unexpected API response structure:", response.data);
       return [];
     }
   } catch (error) {
-    console.error('Error fetching oldest transactions:', error.message);
+    console.error("Error fetching oldest transactions:", error.message);
     return [];
   }
 }
@@ -61,11 +62,12 @@ async function getTransactionDetails(signature) {
 }
 
 async function main() {
+  console.log("Starting transaction fetch process...");
   const oldestTransactions = await getOldestTransactions();
-  console.log(`Fetched ${oldestTransactions.length} transactions`);
+  console.log(`Fetched ${oldestTransactions.length} transaction signatures`);
   
   if (oldestTransactions.length === 0) {
-    console.log('No transactions found. Exiting.');
+    console.log("No transactions found. Exiting.");
     return;
   }
 
@@ -80,10 +82,27 @@ async function main() {
     await sleep(100); // To avoid rate limiting
   }
 
+  console.log(`Total transactions processed: ${transactions.length}`);
   await fs.writeFile(OUTPUT_FILE, JSON.stringify(transactions, null, 2));
   console.log(`Transactions saved to ${OUTPUT_FILE}`);
 }
 
 main().catch(error => {
-  console.error('An error occurred in the main function:', error);
+  console.error("An error occurred in the main function:", error);
 });
+
+async function testAlchemy() {
+  try {
+    const response = await axios.post(ALCHEMY_URL, {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "getHealth",
+      params: []
+    });
+    console.log("Alchemy API Response:", response.data);
+  } catch (error) {
+    console.error("Error testing Alchemy API:", error.message);
+  }
+}
+
+testAlchemy();
