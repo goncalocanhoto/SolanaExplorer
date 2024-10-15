@@ -1,0 +1,22 @@
+{
+  "name": "solana-token-transactions",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "audit": "npm audit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@ethersproject/hash": "^5.7.0",
+    "@solana/web3.js": "^1.95.3",
+    "alchemy-sdk": "^3.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "socket.io": "^4.8.0"
+  }
+}
